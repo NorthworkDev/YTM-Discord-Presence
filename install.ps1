@@ -3,9 +3,17 @@ $ErrorActionPreference = "Stop"
 $HostName = "com.ytm.discordpresence"
 $ExtensionId = "glbnhdknaoidcnihblllkdfkmhjlgdoo"
 
-$InstallDir = Join-Path $env:LOCALAPPDATA "YTM Discord Presence"
-$HostExe = Join-Path $InstallDir "YTMPresence.exe"
-$HostManifest = Join-Path $InstallDir "$HostName.json"
+$InstallDir =
+    Join-Path $env:LOCALAPPDATA "YTM Discord Presence"
+
+$HostExe =
+    Join-Path $InstallDir "YTMPresence.exe"
+
+$HostManifest =
+    Join-Path $InstallDir "$HostName.json"
+
+$ExtensionDir =
+    Join-Path $InstallDir "extension"
 
 $RegistryPath =
     "HKCU\Software\Google\Chrome\NativeMessagingHosts\$HostName"
@@ -24,7 +32,8 @@ Write-Host ""
 function Download-WithProgress {
     param(
         [string]$Url,
-        [string]$OutputFile
+        [string]$OutputFile,
+        [string]$Activity
     )
 
     $request =
@@ -70,7 +79,8 @@ function Download-WithProgress {
                 $read
             )
 
-            $downloaded += $read
+            $downloaded +=
+                $read
 
             if ($total -gt 0) {
 
@@ -95,14 +105,14 @@ function Download-WithProgress {
                     )
 
                 Write-Progress `
-                    -Activity "Downloading YTMPresence.exe" `
+                    -Activity $Activity `
                     -Status "$currentMB MB / $totalMB MB" `
                     -PercentComplete $percent
             }
         }
 
         Write-Progress `
-            -Activity "Downloading YTMPresence.exe" `
+            -Activity $Activity `
             -Completed
 
     }
@@ -116,10 +126,10 @@ function Download-WithProgress {
 }
 
 # ============================================================
-# STEP 1
+# STEP 1 - LATEST RELEASE
 # ============================================================
 
-Write-Host "[1/5] Checking latest GitHub release..." `
+Write-Host "[1/6] Checking latest GitHub release..." `
     -ForegroundColor Yellow
 
 $headers = @{
@@ -133,30 +143,44 @@ $release =
         -Headers $headers `
         -Method Get
 
-$asset =
+$nativeAsset =
     $release.assets |
     Where-Object {
         $_.name -eq "YTMPresence.exe"
     } |
     Select-Object -First 1
 
-if (-not $asset) {
+$extensionAsset =
+    $release.assets |
+    Where-Object {
+        $_.name -eq "YTM-Discord-Presence-extension.zip"
+    } |
+    Select-Object -First 1
+
+if (-not $nativeAsset) {
     throw "YTMPresence.exe was not found in the latest GitHub release."
+}
+
+if (-not $extensionAsset) {
+    throw "YTM-Discord-Presence-extension.zip was not found in the latest GitHub release."
 }
 
 Write-Host ""
 Write-Host "Latest release: $($release.tag_name)" `
     -ForegroundColor Green
 
-Write-Host "Asset: $($asset.name)" `
+Write-Host "Native helper: $($nativeAsset.name)" `
+    -ForegroundColor Green
+
+Write-Host "Extension package: $($extensionAsset.name)" `
     -ForegroundColor Green
 
 # ============================================================
-# STEP 2
+# STEP 2 - DIRECTORIES
 # ============================================================
 
 Write-Host ""
-Write-Host "[2/5] Preparing installation directory..." `
+Write-Host "[2/6] Preparing installation directories..." `
     -ForegroundColor Yellow
 
 if (-not (Test-Path $InstallDir)) {
@@ -169,17 +193,32 @@ if (-not (Test-Path $InstallDir)) {
 
 }
 
+if (Test-Path $ExtensionDir) {
+
+    Remove-Item `
+        $ExtensionDir `
+        -Recurse `
+        -Force
+
+}
+
+New-Item `
+    -ItemType Directory `
+    -Path $ExtensionDir `
+    -Force |
+    Out-Null
+
 Write-Host "Install location:" `
     -ForegroundColor DarkGray
 
 Write-Host $InstallDir
 
 # ============================================================
-# STEP 3
+# STEP 3 - DOWNLOAD NATIVE HELPER
 # ============================================================
 
 Write-Host ""
-Write-Host "[3/5] Downloading native helper..." `
+Write-Host "[3/6] Downloading native helper..." `
     -ForegroundColor Yellow
 
 $tempExe =
@@ -196,8 +235,9 @@ if (Test-Path $tempExe) {
 }
 
 Download-WithProgress `
-    -Url $asset.browser_download_url `
-    -OutputFile $tempExe
+    -Url $nativeAsset.browser_download_url `
+    -OutputFile $tempExe `
+    -Activity "Downloading YTMPresence.exe"
 
 Copy-Item `
     -Path $tempExe `
@@ -214,11 +254,65 @@ Write-Host "Native helper installed." `
     -ForegroundColor Green
 
 # ============================================================
-# STEP 4
+# STEP 4 - DOWNLOAD AND EXTRACT EXTENSION
 # ============================================================
 
 Write-Host ""
-Write-Host "[4/5] Configuring Chrome Native Messaging..." `
+Write-Host "[4/6] Downloading Chrome extension..." `
+    -ForegroundColor Yellow
+
+$tempZip =
+    Join-Path `
+        $env:TEMP `
+        "YTM-Discord-Presence-extension.zip"
+
+if (Test-Path $tempZip) {
+
+    Remove-Item `
+        $tempZip `
+        -Force
+
+}
+
+Download-WithProgress `
+    -Url $extensionAsset.browser_download_url `
+    -OutputFile $tempZip `
+    -Activity "Downloading Chrome extension"
+
+Write-Host ""
+Write-Host "Extracting Chrome extension..." `
+    -ForegroundColor Yellow
+
+Expand-Archive `
+    -Path $tempZip `
+    -DestinationPath $ExtensionDir `
+    -Force
+
+Remove-Item `
+    $tempZip `
+    -Force `
+    -ErrorAction SilentlyContinue
+
+$ExtensionManifest =
+    Join-Path `
+        $ExtensionDir `
+        "manifest.json"
+
+if (-not (Test-Path $ExtensionManifest)) {
+
+    throw "The extension package was extracted, but manifest.json was not found."
+
+}
+
+Write-Host "Chrome extension extracted successfully." `
+    -ForegroundColor Green
+
+# ============================================================
+# STEP 5 - NATIVE MESSAGING
+# ============================================================
+
+Write-Host ""
+Write-Host "[5/6] Configuring Chrome Native Messaging..." `
     -ForegroundColor Yellow
 
 $escapedExePath =
@@ -252,19 +346,23 @@ reg.exe add `
     /f |
     Out-Null
 
-Write-Host "Native Messaging registered." `
+Write-Host "Chrome Native Messaging registered." `
     -ForegroundColor Green
 
 # ============================================================
-# STEP 5
+# STEP 6 - VERIFY
 # ============================================================
 
 Write-Host ""
-Write-Host "[5/5] Verifying installation..." `
+Write-Host "[6/6] Verifying installation..." `
     -ForegroundColor Yellow
 
 if (-not (Test-Path $HostExe)) {
     throw "YTMPresence.exe could not be verified."
+}
+
+if (-not (Test-Path $ExtensionManifest)) {
+    throw "Chrome extension manifest could not be verified."
 }
 
 $registryCheck =
@@ -276,10 +374,13 @@ if (-not $registryCheck) {
     throw "Chrome Native Messaging registration could not be verified."
 }
 
-Write-Host "Helper verified." `
+Write-Host "Native helper: OK" `
     -ForegroundColor Green
 
-Write-Host "Registry verified." `
+Write-Host "Chrome extension files: OK" `
+    -ForegroundColor Green
+
+Write-Host "Native Messaging: OK" `
     -ForegroundColor Green
 
 # ============================================================
@@ -298,21 +399,33 @@ Write-Host "==================================================" `
 
 Write-Host ""
 
-Write-Host "YTM Discord Presence is installed." `
-    -ForegroundColor Green
+Write-Host "Native helper:"
+Write-Host "  $HostExe"
 
 Write-Host ""
-Write-Host "Installed helper:"
-Write-Host $HostExe
+Write-Host "Chrome extension:"
+Write-Host "  $ExtensionDir"
+
+Write-Host ""
+Write-Host "Extension manifest:"
+Write-Host "  $ExtensionManifest"
 
 Write-Host ""
 Write-Host "Chrome Native Messaging: READY" `
     -ForegroundColor Green
 
 Write-Host ""
-Write-Host "Open YouTube Music and play a song." `
-    -ForegroundColor Cyan
+Write-Host "IMPORTANT:" `
+    -ForegroundColor Yellow
+
+Write-Host "The extension files are installed and ready for"
+Write-Host "Chrome's Load unpacked feature."
 
 Write-Host ""
 Write-Host "No Node.js or server.js is required."
+Write-Host ""
+
+Write-Host "Installation finished successfully." `
+    -ForegroundColor Green
+
 Write-Host ""
