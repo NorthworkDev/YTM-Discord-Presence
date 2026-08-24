@@ -31,7 +31,7 @@ Write-Progress `
     -Activity "Removing Native Messaging" `
     -Completed
 
-Write-Host "[2/3] Removing native helper..." `
+Write-Host "[2/3] Removing YTM Discord Presence files..." `
     -ForegroundColor Yellow
 
 if (Test-Path $InstallDir) {
@@ -44,7 +44,7 @@ if (Test-Path $InstallDir) {
 }
 
 Write-Progress `
-    -Activity "Removing native helper" `
+    -Activity "Removing application files" `
     -Completed
 
 Write-Host "[3/3] Cleaning up..." `
@@ -70,7 +70,10 @@ Write-Host ""
 Write-Host "Native helper removed." `
     -ForegroundColor Green
 
+Write-Host "Extension files removed." `
+    -ForegroundColor Green
+
 Write-Host ""
-Write-Host "The Chrome extension itself must be removed"
-Write-Host "separately through Chrome."
+Write-Host "NOTE: Chrome does not automatically uninstall"
+Write-Host "the extension registration from this script."
 Write-Host ""
