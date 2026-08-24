@@ -1,0 +1,40 @@
+{
+  "manifest_version": 3,
+  "name": "YouTube Music Discord Presence",
+  "version": "2.0.0",
+  "description": "Shows your YouTube Music listening activity on Discord.",
+  "permissions": [
+    "nativeMessaging"
+  ],
+  "host_permissions": [
+    "https://music.youtube.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "page-bridge.js"
+      ],
+      "matches": [
+        "https://music.youtube.com/*"
+      ]
+    }
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://music.youtube.com/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_title": "YouTube Music Discord Presence",
+    "default_popup": "popup.html"
+  }
+}

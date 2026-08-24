@@ -1,0 +1,9 @@
+{
+  "name": "com.ytm.discordpresence",
+  "description": "YouTube Music Discord Presence native host",
+  "path": "D:\\YTM-Discord-Presence\\native\\YTMPresence.exe",
+  "type": "stdio",
+  "allowed_origins": [
+    "chrome-extension://glbnhdknaoidcnihblllkdfkmhjlgdoo/"
+  ]
+}

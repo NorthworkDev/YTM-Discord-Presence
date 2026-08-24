@@ -1,0 +1,14 @@
+{
+  "name": "ytm-discord-presence-native",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Native Messaging host for YouTube Music Discord Presence",
+  "main": "native-host.js",
+  "bin": "native-host.js",
+  "dependencies": {
+    "@xhayper/discord-rpc": "^1.3.4"
+  },
+  "devDependencies": {
+    "@yao-pkg/pkg": "^6.22.0"
+  }
+}
