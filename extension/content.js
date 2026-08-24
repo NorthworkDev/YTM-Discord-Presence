@@ -1,572 +1,707 @@
-let pageState = {
-    videoId: "",
-    title: "",
-    author: "",
-    artwork: ""
-};
+(() => {
+    /*
+    ==================================================
+    PREVENT DUPLICATE INJECTION
+    ==================================================
+    */
 
-let lastVideo = null;
-let lastSongKey = "";
-let lastSent = 0;
-let lastTime = 0;
-let lastPaused = null;
-
-/*
-==================================================
- PAGE-WORLD BRIDGE
-==================================================
-*/
-
-function injectPageBridge() {
     if (
-        window.__YTM_PAGE_BRIDGE_INJECTED__
+        window.__YTM_DISCORD_PRESENCE_LOADED__
     ) {
+        console.log(
+            "[YTM Presence] Content script already running."
+        );
         return;
     }
 
-    window.__YTM_PAGE_BRIDGE_INJECTED__ =
+    window.__YTM_DISCORD_PRESENCE_LOADED__ =
         true;
 
-    const script =
-        document.createElement("script");
+    /*
+    ==================================================
+    STATE
+    ==================================================
+    */
 
-    script.src =
-        chrome.runtime.getURL(
-            "page-bridge.js"
-        );
-
-    script.onload = () => {
-        script.remove();
+    let pageState = {
+        videoId: "",
+        title: "",
+        author: "",
+        artwork: ""
     };
 
-    (
-        document.head ||
-        document.documentElement
-    ).appendChild(script);
+    let lastVideo = null;
+    let lastSongKey = "";
+    let lastSent = 0;
+    let lastTime = 0;
+    let lastPaused = null;
 
-    console.log(
-        "[YTM Presence] Page bridge injected."
-    );
-}
+    /*
+    ==================================================
+    PAGE-WORLD BRIDGE
+    ==================================================
+    */
 
-injectPageBridge();
-
-/*
-==================================================
- RECEIVE PAGE BRIDGE DATA
-==================================================
-*/
-
-window.addEventListener(
-    "message",
-    (event) => {
-
+    function injectPageBridge() {
         if (
-            event.source !== window
+            window.__YTM_PAGE_BRIDGE_INJECTED__
         ) {
+            console.log(
+                "[YTM Presence] Page bridge already injected."
+            );
             return;
         }
 
-        const data =
-            event.data;
+        window.__YTM_PAGE_BRIDGE_INJECTED__ =
+            true;
 
-        if (
-            !data ||
-            data.source !==
-                "YTM_DISCORD_PAGE_BRIDGE"
-        ) {
-            return;
-        }
+        const script =
+            document.createElement("script");
 
-        if (
-            data.type !==
-                "PLAYER_STATE"
-        ) {
-            return;
-        }
+        script.src =
+            chrome.runtime.getURL(
+                "page-bridge.js"
+            );
 
-        pageState = {
-            videoId:
-                data.videoId || "",
+        script.onload = () => {
+            script.remove();
 
-            title:
-                data.title || "",
-
-            author:
-                data.author || "",
-
-            artwork:
-                data.artwork || ""
+            console.log(
+                "[YTM Presence] Page bridge injected."
+            );
         };
 
-        console.log(
-            "[YTM Presence] Page state:",
-            pageState
+        script.onerror = () => {
+            console.error(
+                "[YTM Presence] Failed to inject page bridge."
+            );
+
+            window.__YTM_PAGE_BRIDGE_INJECTED__ =
+                false;
+        };
+
+        (
+            document.head ||
+            document.documentElement
+        ).appendChild(script);
+    }
+
+    injectPageBridge();
+
+    /*
+    ==================================================
+    RECEIVE PAGE BRIDGE DATA
+    ==================================================
+    */
+
+    window.addEventListener(
+        "message",
+        (event) => {
+
+            if (
+                event.source !==
+                window
+            ) {
+                return;
+            }
+
+            const data =
+                event.data;
+
+            if (
+                !data ||
+                data.source !==
+                    "YTM_DISCORD_PAGE_BRIDGE"
+            ) {
+                return;
+            }
+
+            if (
+                data.type !==
+                    "PLAYER_STATE"
+            ) {
+                return;
+            }
+
+            pageState = {
+                videoId:
+                    data.videoId || "",
+
+                title:
+                    data.title || "",
+
+                author:
+                    data.author || "",
+
+                artwork:
+                    data.artwork || ""
+            };
+
+            console.log(
+                "[YTM Presence] Page state:",
+                pageState
+            );
+
+            /*
+            Important:
+            The extension can be loaded while a song is
+            already playing. As soon as the bridge gives
+            us the current state, immediately send it.
+            */
+
+            updatePresence(true);
+        }
+    );
+
+    /*
+    ==================================================
+    HELPERS
+    ==================================================
+    */
+
+    function clean(text) {
+        return String(text || "")
+            .replace(
+                /\u200B/g,
+                ""
+            )
+            .replace(
+                /\r/g,
+                ""
+            )
+            .replace(
+                /\t/g,
+                " "
+            )
+            .replace(
+                /\s+/g,
+                " "
+            )
+            .trim();
+    }
+
+    /*
+    ==================================================
+    VIDEO
+    ==================================================
+    */
+
+    function getVideo() {
+        return document.querySelector(
+            "video"
         );
+    }
+
+    /*
+    ==================================================
+    PLAYER BAR
+    ==================================================
+    */
+
+    function getPlayerBar() {
+        return (
+            document.querySelector(
+                "ytmusic-app-layout > ytmusic-player-bar"
+            ) ||
+            document.querySelector(
+                "ytmusic-player-bar"
+            )
+        );
+    }
+
+    /*
+    ==================================================
+    ALBUM
+    ==================================================
+    */
+
+    function getAlbum() {
+        const bar =
+            getPlayerBar();
+
+        if (!bar) {
+            return "";
+        }
+
+        const byline =
+            bar.querySelector(
+                ".byline"
+            );
+
+        if (!byline) {
+            return "";
+        }
+
+        const parts =
+            clean(
+                byline.textContent
+            )
+                .split("•")
+                .map(clean)
+                .filter(Boolean);
+
+        const artist =
+            clean(
+                pageState.author
+            );
+
+        const title =
+            clean(
+                pageState.title
+            );
+
+        if (
+            parts.length >= 2
+        ) {
+            const possibleAlbum =
+                parts[1];
+
+            if (
+                possibleAlbum &&
+                possibleAlbum !==
+                    title &&
+                possibleAlbum !==
+                    artist &&
+                !/^\d{4}$/.test(
+                    possibleAlbum
+                )
+            ) {
+                return possibleAlbum;
+            }
+        }
+
+        return "";
+    }
+
+    /*
+    ==================================================
+    SONG INFO
+    ==================================================
+    */
+
+    function getSongInfo() {
+        const video =
+            getVideo();
+
+        if (!video) {
+            return null;
+        }
+
+        if (!pageState.title) {
+            return null;
+        }
+
+        const title =
+            clean(
+                pageState.title
+            );
+
+        const artist =
+            clean(
+                pageState.author
+            ) ||
+            "Unknown Artist";
+
+        let album =
+            getAlbum();
+
+        if (
+            album.toLowerCase() ===
+            title.toLowerCase()
+        ) {
+            album = "";
+        }
+
+        if (
+            album.toLowerCase() ===
+            artist.toLowerCase()
+        ) {
+            album = "";
+        }
+
+        if (
+            /^\d{4}$/.test(
+                album
+            )
+        ) {
+            album = "";
+        }
+
+        const currentTime =
+            Number(
+                video.currentTime
+            ) || 0;
+
+        const duration =
+            Number(
+                video.duration
+            ) || 0;
+
+        return {
+            title,
+            artist,
+            album,
+            artwork:
+                pageState.artwork,
+
+            videoId:
+                pageState.videoId,
+
+            currentTime,
+            duration,
+
+            paused:
+                video.paused,
+
+            url:
+                location.href
+        };
+    }
+
+    /*
+    ==================================================
+    SEND TO NATIVE HOST
+    ==================================================
+    */
+
+    async function sendToNativeHost(
+        data
+    ) {
+        try {
+
+            const response =
+                await chrome.runtime.sendMessage({
+                    type:
+                        "PLAYER_UPDATE",
+
+                    data
+                });
+
+            if (
+                response &&
+                response.success === false
+            ) {
+                console.warn(
+                    "[YTM Presence] Native host unavailable:",
+                    response.error
+                );
+            }
+
+        } catch (error) {
+
+            /*
+            Extension context can disappear during
+            reload/update/uninstall. Don't crash the
+            player detector when that happens.
+            */
+
+            if (
+                error &&
+                error.message &&
+                error.message.includes(
+                    "Extension context invalidated"
+                )
+            ) {
+                console.warn(
+                    "[YTM Presence] Extension context invalidated."
+                );
+
+                return;
+            }
+
+            console.warn(
+                "[YTM Presence] Native messaging error:",
+                error &&
+                error.message
+                    ? error.message
+                    : error
+            );
+        }
+    }
+
+    /*
+    ==================================================
+    UPDATE PRESENCE
+    ==================================================
+    */
+
+    function updatePresence(
+        force = false
+    ) {
+        const data =
+            getSongInfo();
+
+        if (!data) {
+            return;
+        }
+
+        const songKey =
+            `${data.videoId}|${data.title}|${data.artist}`;
+
+        const songChanged =
+            songKey !==
+            lastSongKey;
+
+        const pauseChanged =
+            data.paused !==
+            lastPaused;
+
+        const timeJump =
+            Math.abs(
+                data.currentTime -
+                lastTime
+            );
+
+        const seeked =
+            timeJump > 3;
+
+        const regularUpdate =
+            Date.now() -
+            lastSent >= 2000;
+
+        if (
+            !force &&
+            !songChanged &&
+            !pauseChanged &&
+            !seeked &&
+            !regularUpdate
+        ) {
+            return;
+        }
+
+        lastSongKey =
+            songKey;
+
+        lastTime =
+            data.currentTime;
+
+        lastPaused =
+            data.paused;
+
+        lastSent =
+            Date.now();
+
+        console.log(
+            "[YTM Presence] SONG:",
+            data
+        );
+
+        sendToNativeHost(
+            data
+        );
+    }
+
+    /*
+    ==================================================
+    VIDEO EVENTS
+    ==================================================
+    */
+
+    function attachVideo() {
+        const video =
+            getVideo();
+
+        if (!video) {
+            return;
+        }
+
+        if (
+            video ===
+            lastVideo
+        ) {
+            return;
+        }
+
+        lastVideo =
+            video;
+
+        console.log(
+            "[YTM Presence] Video listeners attached."
+        );
+
+        video.addEventListener(
+            "play",
+            () => {
+                updatePresence(true);
+            }
+        );
+
+        video.addEventListener(
+            "pause",
+            () => {
+                updatePresence(true);
+            }
+        );
+
+        video.addEventListener(
+            "seeked",
+            () => {
+                updatePresence(true);
+            }
+        );
+
+        video.addEventListener(
+            "loadedmetadata",
+            () => {
+                updatePresence(true);
+            }
+        );
+
+        video.addEventListener(
+            "durationchange",
+            () => {
+                updatePresence(true);
+            }
+        );
+
+        video.addEventListener(
+            "ended",
+            () => {
+                updatePresence(true);
+            }
+        );
+
+        /*
+        Immediately inspect the current video.
+
+        This is important when the extension is loaded
+        while YouTube Music is already playing.
+        */
 
         updatePresence(true);
     }
-);
 
-/*
-==================================================
- HELPERS
-==================================================
-*/
+    /*
+    ==================================================
+    NAVIGATION
+    ==================================================
+    */
 
-function clean(text) {
-    return String(text || "")
-        .replace(
-            /\u200B/g,
-            ""
-        )
-        .replace(
-            /\r/g,
-            ""
-        )
-        .replace(
-            /\t/g,
-            " "
-        )
-        .replace(
-            /\s+/g,
-            " "
-        )
-        .trim();
-}
+    document.addEventListener(
+        "yt-navigate-finish",
+        () => {
 
-/*
-==================================================
- VIDEO
-==================================================
-*/
+            console.log(
+                "[YTM Presence] Navigation detected."
+            );
 
-function getVideo() {
-    return document.querySelector(
-        "video"
-    );
-}
+            lastVideo = null;
+            lastSongKey = "";
 
-/*
-==================================================
- PLAYER BAR
-==================================================
-*/
+            pageState = {
+                videoId: "",
+                title: "",
+                author: "",
+                artwork: ""
+            };
 
-function getPlayerBar() {
-    return (
-        document.querySelector(
-            "ytmusic-app-layout > ytmusic-player-bar"
-        ) ||
-        document.querySelector(
-            "ytmusic-player-bar"
-        )
-    );
-}
-
-/*
-==================================================
- ALBUM
-==================================================
-*/
-
-function getAlbum() {
-    const bar =
-        getPlayerBar();
-
-    if (!bar) {
-        return "";
-    }
-
-    const byline =
-        bar.querySelector(
-            ".byline"
-        );
-
-    if (!byline) {
-        return "";
-    }
-
-    const parts =
-        clean(
-            byline.textContent
-        )
-        .split("•")
-        .map(clean)
-        .filter(Boolean);
-
-    const artist =
-        clean(
-            pageState.author
-        );
-
-    const title =
-        clean(
-            pageState.title
-        );
-
-    if (
-        parts.length >= 2
-    ) {
-        const possibleAlbum =
-            parts[1];
-
-        if (
-            possibleAlbum &&
-            possibleAlbum !==
-                title &&
-            possibleAlbum !==
-                artist &&
-            !/^\d{4}$/.test(
-                possibleAlbum
-            )
-        ) {
-            return possibleAlbum;
-        }
-    }
-
-    return "";
-}
-
-/*
-==================================================
- SONG INFO
-==================================================
-*/
-
-function getSongInfo() {
-    const video =
-        getVideo();
-
-    if (!video) {
-        return null;
-    }
-
-    if (!pageState.title) {
-        return null;
-    }
-
-    const title =
-        clean(
-            pageState.title
-        );
-
-    const artist =
-        clean(
-            pageState.author
-        ) ||
-        "Unknown Artist";
-
-    let album =
-        getAlbum();
-
-    if (
-        album.toLowerCase() ===
-        title.toLowerCase()
-    ) {
-        album = "";
-    }
-
-    if (
-        album.toLowerCase() ===
-        artist.toLowerCase()
-    ) {
-        album = "";
-    }
-
-    if (
-        /^\d{4}$/.test(album)
-    ) {
-        album = "";
-    }
-
-    const currentTime =
-        Number(
-            video.currentTime
-        ) || 0;
-
-    const duration =
-        Number(
-            video.duration
-        ) || 0;
-
-    return {
-        title,
-        artist,
-        album,
-        artwork:
-            pageState.artwork,
-        videoId:
-            pageState.videoId,
-        currentTime,
-        duration,
-        paused:
-            video.paused,
-        url:
-            location.href
-    };
-}
-
-/*
-==================================================
- SEND TO NATIVE HOST
-==================================================
-*/
-
-async function sendToNativeHost(data) {
-    try {
-        const response =
-            await chrome.runtime.sendMessage({
-                type:
-                    "PLAYER_UPDATE",
-
-                data
-            });
-
-        if (
-            response &&
-            response.success === false
-        ) {
-            console.warn(
-                "[YTM Presence] Native host unavailable:",
-                response.error
+            setTimeout(
+                () => {
+                    injectPageBridge();
+                    attachVideo();
+                    updatePresence(true);
+                },
+                300
             );
         }
-
-    } catch (error) {
-        console.warn(
-            "[YTM Presence] Native messaging error:",
-            error.message
-        );
-    }
-}
-
-/*
-==================================================
- UPDATE PRESENCE
-==================================================
-*/
-
-function updatePresence(
-    force = false
-) {
-    const data =
-        getSongInfo();
-
-    if (!data) {
-        return;
-    }
-
-    const songKey =
-        `${data.videoId}|${data.title}|${data.artist}`;
-
-    const songChanged =
-        songKey !==
-        lastSongKey;
-
-    const pauseChanged =
-        data.paused !==
-        lastPaused;
-
-    const timeJump =
-        Math.abs(
-            data.currentTime -
-            lastTime
-        );
-
-    const seeked =
-        timeJump > 3;
-
-    const regularUpdate =
-        Date.now() -
-        lastSent >= 2000;
-
-    if (
-        !force &&
-        !songChanged &&
-        !pauseChanged &&
-        !seeked &&
-        !regularUpdate
-    ) {
-        return;
-    }
-
-    lastSongKey =
-        songKey;
-
-    lastTime =
-        data.currentTime;
-
-    lastPaused =
-        data.paused;
-
-    lastSent =
-        Date.now();
-
-    console.log(
-        "[YTM Presence] SONG:",
-        data
     );
 
-    sendToNativeHost(
-        data
-    );
-}
+    /*
+    ==================================================
+    MUTATION OBSERVER
+    ==================================================
+    */
 
-/*
-==================================================
- VIDEO EVENTS
-==================================================
-*/
-
-function attachVideo() {
-    const video =
-        getVideo();
-
-    if (!video) {
-        return;
-    }
-
-    if (
-        video ===
-        lastVideo
-    ) {
-        return;
-    }
-
-    lastVideo =
-        video;
-
-    console.log(
-        "[YTM Presence] Video listeners attached."
-    );
-
-    video.addEventListener(
-        "play",
-        () => {
-            updatePresence(true);
-        }
-    );
-
-    video.addEventListener(
-        "pause",
-        () => {
-            updatePresence(true);
-        }
-    );
-
-    video.addEventListener(
-        "seeked",
-        () => {
-            updatePresence(true);
-        }
-    );
-
-    video.addEventListener(
-        "loadedmetadata",
-        () => {
-            updatePresence(true);
-        }
-    );
-
-    video.addEventListener(
-        "durationchange",
-        () => {
-            updatePresence(true);
-        }
-    );
-
-    video.addEventListener(
-        "ended",
-        () => {
-            updatePresence(true);
-        }
-    );
-
-    updatePresence(true);
-}
-
-/*
-==================================================
- NAVIGATION
-==================================================
-*/
-
-document.addEventListener(
-    "yt-navigate-finish",
-    () => {
-
-        console.log(
-            "[YTM Presence] Navigation detected."
-        );
-
-        lastVideo = null;
-        lastSongKey = "";
-
-        pageState = {
-            videoId: "",
-            title: "",
-            author: "",
-            artwork: ""
-        };
-
-        setTimeout(
+    const observer =
+        new MutationObserver(
             () => {
                 attachVideo();
-            },
-            300
+            }
+        );
+
+    function startObserver() {
+
+        if (!document.body) {
+            setTimeout(
+                startObserver,
+                250
+            );
+            return;
+        }
+
+        observer.observe(
+            document.body,
+            {
+                childList: true,
+                subtree: true
+            }
         );
     }
-);
 
-/*
-==================================================
- MUTATION OBSERVER
-==================================================
-*/
+    startObserver();
 
-const observer =
-    new MutationObserver(
+    /*
+    ==================================================
+    MAIN LOOP
+    ==================================================
+    */
+
+    setInterval(
         () => {
+
+            /*
+            Re-check the player every second.
+
+            This is what lets the extension recover
+            when YTM replaces its <video> element.
+            */
+
             attachVideo();
-        }
+
+            /*
+            Keep the current Discord timestamp alive.
+            */
+
+            updatePresence();
+
+        },
+        1000
     );
 
-observer.observe(
-    document.body,
-    {
-        childList: true,
-        subtree: true
-    }
-);
+    /*
+    ==================================================
+    START
+    ==================================================
+    */
 
-/*
-==================================================
- MAIN LOOP
-==================================================
-*/
+    console.log(
+        "[YTM Presence] YouTube Music detector loaded."
+    );
 
-setInterval(
-    () => {
-        attachVideo();
-        updatePresence();
-    },
-    1000
-);
+    /*
+    Don't wait a full second before initializing.
+    Try immediately, then retry shortly afterward
+    in case YTM hasn't created the player yet.
+    */
 
-/*
-==================================================
- START
-==================================================
-*/
+    attachVideo();
+    updatePresence(true);
 
-console.log(
-    "[YTM Presence] YouTube Music detector loaded."
-);
+    setTimeout(
+        () => {
+            injectPageBridge();
+            attachVideo();
+            updatePresence(true);
+        },
+        500
+    );
 
-setTimeout(
-    () => {
-        attachVideo();
-    },
-    1000
-);
+    setTimeout(
+        () => {
+            injectPageBridge();
+            attachVideo();
+            updatePresence(true);
+        },
+        1500
+    );
+})();
