@@ -125,10 +125,6 @@ function Download-WithProgress {
     }
 }
 
-# ============================================================
-# STEP 1 - LATEST RELEASE
-# ============================================================
-
 Write-Host "[1/6] Checking latest GitHub release..." `
     -ForegroundColor Yellow
 
@@ -175,10 +171,6 @@ Write-Host "Native helper: $($nativeAsset.name)" `
 Write-Host "Extension package: $($extensionAsset.name)" `
     -ForegroundColor Green
 
-# ============================================================
-# STEP 2 - DIRECTORIES
-# ============================================================
-
 Write-Host ""
 Write-Host "[2/6] Preparing installation directories..." `
     -ForegroundColor Yellow
@@ -212,10 +204,6 @@ Write-Host "Install location:" `
     -ForegroundColor DarkGray
 
 Write-Host $InstallDir
-
-# ============================================================
-# STEP 3 - DOWNLOAD NATIVE HELPER
-# ============================================================
 
 Write-Host ""
 Write-Host "[3/6] Downloading native helper..." `
@@ -252,10 +240,6 @@ Remove-Item `
 Write-Host ""
 Write-Host "Native helper installed." `
     -ForegroundColor Green
-
-# ============================================================
-# STEP 4 - DOWNLOAD AND EXTRACT EXTENSION
-# ============================================================
 
 Write-Host ""
 Write-Host "[4/6] Downloading Chrome extension..." `
@@ -307,10 +291,6 @@ if (-not (Test-Path $ExtensionManifest)) {
 Write-Host "Chrome extension extracted successfully." `
     -ForegroundColor Green
 
-# ============================================================
-# STEP 5 - NATIVE MESSAGING
-# ============================================================
-
 Write-Host ""
 Write-Host "[5/6] Configuring Chrome Native Messaging..." `
     -ForegroundColor Yellow
@@ -349,10 +329,6 @@ reg.exe add `
 Write-Host "Chrome Native Messaging registered." `
     -ForegroundColor Green
 
-# ============================================================
-# STEP 6 - VERIFY
-# ============================================================
-
 Write-Host ""
 Write-Host "[6/6] Verifying installation..." `
     -ForegroundColor Yellow
@@ -382,10 +358,6 @@ Write-Host "Chrome extension files: OK" `
 
 Write-Host "Native Messaging: OK" `
     -ForegroundColor Green
-
-# ============================================================
-# DONE
-# ============================================================
 
 Write-Host ""
 Write-Host "==================================================" `
