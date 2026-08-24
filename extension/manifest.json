@@ -14,15 +14,17 @@
     "service_worker": "background.js"
   },
   "web_accessible_resources": [
-    {
-      "resources": [
-        "page-bridge.js"
-      ],
-      "matches": [
-        "https://music.youtube.com/*"
-      ]
-    }
-  ],
+  {
+    "resources": [
+      "page-bridge.js",
+      "uninstall.html",
+      "uninstall.js"
+    ],
+    "matches": [
+      "https://music.youtube.com/*"
+    ]
+  }
+]
   "content_scripts": [
     {
       "matches": [
