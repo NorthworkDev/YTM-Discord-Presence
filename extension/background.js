@@ -25,12 +25,6 @@ function connectNative() {
                     message
                 );
 
-                /*
-                ==========================================
-                UNINSTALL REQUEST
-                ==========================================
-                */
-
                 if (
                     message &&
                     message.type ===
@@ -100,12 +94,6 @@ function connectNative() {
     }
 }
 
-/*
-==================================================
- PLAYER UPDATE
-==================================================
-*/
-
 chrome.runtime.onMessage.addListener(
     (message, sender, sendResponse) => {
 
@@ -165,12 +153,6 @@ chrome.runtime.onMessage.addListener(
         return true;
     }
 );
-
-/*
-==================================================
- INSTALL / UPDATE
-==================================================
-*/
 
 chrome.runtime.onInstalled.addListener(
     async (details) => {
