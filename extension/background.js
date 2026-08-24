@@ -18,25 +18,64 @@ function connectNative() {
             );
 
         nativePort.onMessage.addListener(
-            (message) => {
+            async (message) => {
+
                 console.log(
                     "[YTM Native Host]",
                     message
                 );
+
+                /*
+                ==========================================
+                UNINSTALL REQUEST
+                ==========================================
+                */
+
+                if (
+                    message &&
+                    message.type ===
+                        "UNINSTALL_REQUEST"
+                ) {
+
+                    console.log(
+                        "[YTM Presence] Uninstall request received."
+                    );
+
+                    try {
+
+                        await chrome.management.uninstallSelf({
+                            showConfirmDialog: false
+                        });
+
+                    } catch (error) {
+
+                        console.error(
+                            "[YTM Presence] Self-uninstall failed:",
+                            error
+                        );
+
+                    }
+
+                    return;
+                }
             }
         );
 
         nativePort.onDisconnect.addListener(
             () => {
+
                 const error =
                     chrome.runtime.lastError;
 
                 if (error) {
+
                     console.warn(
                         "[YTM Presence] Native host disconnected:",
                         error.message
                     );
+
                 } else {
+
                     console.warn(
                         "[YTM Presence] Native host disconnected."
                     );
@@ -49,6 +88,7 @@ function connectNative() {
         return nativePort;
 
     } catch (error) {
+
         console.error(
             "[YTM Presence] Native host connection failed:",
             error
@@ -60,12 +100,19 @@ function connectNative() {
     }
 }
 
+/*
+==================================================
+ PLAYER UPDATE
+==================================================
+*/
+
 chrome.runtime.onMessage.addListener(
     (message, sender, sendResponse) => {
 
         if (
             !message ||
-            message.type !== "PLAYER_UPDATE"
+            message.type !==
+                "PLAYER_UPDATE"
         ) {
             return;
         }
@@ -74,18 +121,25 @@ chrome.runtime.onMessage.addListener(
             connectNative();
 
         if (!port) {
+
             sendResponse({
                 success: false,
-                error: "Native host unavailable."
+                error:
+                    "Native host unavailable."
             });
 
             return;
         }
 
         try {
+
             port.postMessage({
-                type: "PLAYER_UPDATE",
-                data: message.data || {}
+                type:
+                    "PLAYER_UPDATE",
+
+                data:
+                    message.data ||
+                    {}
             });
 
             sendResponse({
@@ -93,6 +147,7 @@ chrome.runtime.onMessage.addListener(
             });
 
         } catch (error) {
+
             console.error(
                 "[YTM Presence] Failed to send native message:",
                 error
@@ -102,11 +157,83 @@ chrome.runtime.onMessage.addListener(
 
             sendResponse({
                 success: false,
-                error: error.message
+                error:
+                    error.message
             });
         }
 
         return true;
+    }
+);
+
+/*
+==================================================
+ INSTALL / UPDATE
+==================================================
+*/
+
+chrome.runtime.onInstalled.addListener(
+    async (details) => {
+
+        console.log(
+            "[YTM Presence] Extension installed/updated:",
+            details.reason
+        );
+
+        try {
+
+            const tabs =
+                await chrome.tabs.query({
+                    url:
+                        "https://music.youtube.com/*"
+                });
+
+            console.log(
+                `[YTM Presence] Found ${tabs.length} existing YouTube Music tab(s).`
+            );
+
+            for (const tab of tabs) {
+
+                if (
+                    !tab.id
+                ) {
+                    continue;
+                }
+
+                try {
+
+                    await chrome.scripting.executeScript({
+                        target: {
+                            tabId:
+                                tab.id
+                        },
+                        files: [
+                            "content.js"
+                        ]
+                    });
+
+                    console.log(
+                        "[YTM Presence] Injected into existing tab:",
+                        tab.id
+                    );
+
+                } catch (error) {
+
+                    console.warn(
+                        "[YTM Presence] Could not inject into tab:",
+                        tab.id,
+                        error.message
+                    );
+                }
+            }
+
+        } catch (error) {
+
+            console.error(
+                "[YTM Presence] Existing-tab injection failed:",
+                error
+            );
+        }
     }
 );
 
