@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 
 $HostName = "com.ytm.discordpresence"
-$ExtensionId = "glbnhdknaoidcnihblllkdfkmhjlgdoo"
+$ExtensionId = "anjcijgcicclibmfiaincoadifjmnegg"
 
 $InstallDir =
     Join-Path $env:LOCALAPPDATA "YTM Discord Presence"
