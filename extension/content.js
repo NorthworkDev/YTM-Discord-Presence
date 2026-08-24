@@ -1,10 +1,5 @@
 (() => {
-    /*
-    ==================================================
-    PREVENT DUPLICATE INJECTION
-    ==================================================
-    */
-
+    
     if (
         window.__YTM_DISCORD_PRESENCE_LOADED__
     ) {
@@ -16,12 +11,6 @@
 
     window.__YTM_DISCORD_PRESENCE_LOADED__ =
         true;
-
-    /*
-    ==================================================
-    STATE
-    ==================================================
-    */
 
     let pageState = {
         videoId: "",
@@ -35,12 +24,6 @@
     let lastSent = 0;
     let lastTime = 0;
     let lastPaused = null;
-
-    /*
-    ==================================================
-    PAGE-WORLD BRIDGE
-    ==================================================
-    */
 
     function injectPageBridge() {
         if (
@@ -87,12 +70,6 @@
     }
 
     injectPageBridge();
-
-    /*
-    ==================================================
-    RECEIVE PAGE BRIDGE DATA
-    ==================================================
-    */
 
     window.addEventListener(
         "message",
@@ -142,22 +119,9 @@
                 pageState
             );
 
-            /*
-            Important:
-            The extension can be loaded while a song is
-            already playing. As soon as the bridge gives
-            us the current state, immediately send it.
-            */
-
             updatePresence(true);
         }
     );
-
-    /*
-    ==================================================
-    HELPERS
-    ==================================================
-    */
 
     function clean(text) {
         return String(text || "")
@@ -180,23 +144,11 @@
             .trim();
     }
 
-    /*
-    ==================================================
-    VIDEO
-    ==================================================
-    */
-
     function getVideo() {
         return document.querySelector(
             "video"
         );
     }
-
-    /*
-    ==================================================
-    PLAYER BAR
-    ==================================================
-    */
 
     function getPlayerBar() {
         return (
@@ -208,12 +160,6 @@
             )
         );
     }
-
-    /*
-    ==================================================
-    ALBUM
-    ==================================================
-    */
 
     function getAlbum() {
         const bar =
@@ -272,12 +218,6 @@
 
         return "";
     }
-
-    /*
-    ==================================================
-    SONG INFO
-    ==================================================
-    */
 
     function getSongInfo() {
         const video =
@@ -358,12 +298,6 @@
         };
     }
 
-    /*
-    ==================================================
-    SEND TO NATIVE HOST
-    ==================================================
-    */
-
     async function sendToNativeHost(
         data
     ) {
@@ -389,12 +323,6 @@
 
         } catch (error) {
 
-            /*
-            Extension context can disappear during
-            reload/update/uninstall. Don't crash the
-            player detector when that happens.
-            */
-
             if (
                 error &&
                 error.message &&
@@ -418,12 +346,6 @@
             );
         }
     }
-
-    /*
-    ==================================================
-    UPDATE PRESENCE
-    ==================================================
-    */
 
     function updatePresence(
         force = false
@@ -491,12 +413,6 @@
         );
     }
 
-    /*
-    ==================================================
-    VIDEO EVENTS
-    ==================================================
-    */
-
     function attachVideo() {
         const video =
             getVideo();
@@ -561,21 +477,8 @@
             }
         );
 
-        /*
-        Immediately inspect the current video.
-
-        This is important when the extension is loaded
-        while YouTube Music is already playing.
-        */
-
         updatePresence(true);
     }
-
-    /*
-    ==================================================
-    NAVIGATION
-    ==================================================
-    */
 
     document.addEventListener(
         "yt-navigate-finish",
@@ -606,12 +509,6 @@
         }
     );
 
-    /*
-    ==================================================
-    MUTATION OBSERVER
-    ==================================================
-    */
-
     const observer =
         new MutationObserver(
             () => {
@@ -640,27 +537,10 @@
 
     startObserver();
 
-    /*
-    ==================================================
-    MAIN LOOP
-    ==================================================
-    */
-
     setInterval(
         () => {
 
-            /*
-            Re-check the player every second.
-
-            This is what lets the extension recover
-            when YTM replaces its <video> element.
-            */
-
             attachVideo();
-
-            /*
-            Keep the current Discord timestamp alive.
-            */
 
             updatePresence();
 
@@ -668,21 +548,9 @@
         1000
     );
 
-    /*
-    ==================================================
-    START
-    ==================================================
-    */
-
     console.log(
         "[YTM Presence] YouTube Music detector loaded."
     );
-
-    /*
-    Don't wait a full second before initializing.
-    Try immediately, then retry shortly afterward
-    in case YTM hasn't created the player yet.
-    */
 
     attachVideo();
     updatePresence(true);
