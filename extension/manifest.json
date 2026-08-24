@@ -4,8 +4,9 @@
   "version": "2.0.0",
   "description": "Shows your YouTube Music listening activity on Discord.",
   "permissions": [
-    "nativeMessaging"
-  ],
+  "nativeMessaging",
+  "scripting"
+],
   "host_permissions": [
     "https://music.youtube.com/*"
   ],
